@@ -1285,7 +1285,8 @@ def highlight_niche_on_spatial(
         axis=1
     )
     adata_sample.obs['niche_status'] = adata_sample.obs['niche_status'].astype('category')
-    adata_sample.obs['niche_status'].cat.set_categories(['background', 'niche'], inplace=True)
+    
+    adata_sample.obs['niche_status'] = adata_sample.obs['niche_status'].cat.set_categories(['background', 'niche'])
 
     # 设置颜色
     color_palette = [background_color, niche_color]
