@@ -55,7 +55,9 @@ from stniche import plot_adj_difference_heatmap
 
 plot_adj_difference_heatmap(
     adj_df,
-    save_as='bcc_vs_healthy.pdf'
+    cmap='RdBu',
+    save_as=None,    # 新增：保存路径 + 格式，例如 'figure.svg'
+    show=True
 )
 ```
 
@@ -72,10 +74,10 @@ grouped_structures, sample_wise_structures, df_counts = extract_and_group_3rd_st
     row_key='array_row',
     col_key='array_col',
     sample_key='sample_id',
-    group_key='class',
-    focus_group='basal cell carcinoma',
+    group_key='class1',
+    focus_group=None,
     leiden_key='leiden_0.7',
-    coverage_threshold=0.8,
+    coverage_threshold = 0.8,    
     fc_threshold=4.0,
     p_threshold=0.05
 )
@@ -129,10 +131,11 @@ from stniche import plot_structure_hex
 
 plot_structure_hex(
     all_iterative_results,
-    group=3,
-    title='Niche Structure',
+    group = 0,
+    title="Structure (Hex View)",
     hex_size=1,
-    save_as='structure_hex.svg'
+    save_as=None,
+    show=True
 )
 ```
 
@@ -148,7 +151,11 @@ highlight_niche_on_spatial(
     sample_id='Sample123',
     sample_path='/path/to/visium/sample',
     save_path='highlighted_niche.pdf',
-    show=True
+    show=True,
+    spot_size=30,
+    niche_color='red',
+    background_color='gray',
+    image_resolution='hires'
 )
 ```
 
@@ -162,13 +169,14 @@ from stniche import run_niche_differential_and_enrichment
 run_niche_differential_and_enrichment(
     adata,
     all_iterative_results,
-    group_index=3,
+    group_index=0,
     padj_thr=0.05,
     lfc_thr=1,
     enrichr_gene_set='KEGG_2021_Human',
     organism='Human',
     top_n=20,
-    output_prefix='niche_analysis'
+    output_prefix=None,
+    show_plot=True
 )
 ```
 
@@ -182,10 +190,10 @@ from stniche import plot_spatial_communication_sankey
 plot_spatial_communication_sankey(
     adata,
     all_iterative_results,
-    group_index=3,
-    direction='niche',
+    group_index=0,
+    direction='niche',  # or 'non_niche'
     top_n=50,
-    output_dir='output_dir',
+    output_dir=None,
     show_plot=True
 )
 ```
@@ -202,4 +210,4 @@ MIT License
 
 - **Mintian Cui**
 - Contact: [1308318910@qq.com](mailto:1308318910@qq.com)
-- GitHub: [https://github.com/mintian-cui/stniche](https://github.com/mintian-cui/stniche)
+- GitHub: [https://github.com/BioinAI/stniche](https://github.com/BioinAI/stniche)
