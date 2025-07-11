@@ -56,7 +56,7 @@ from stniche import plot_adj_difference_heatmap
 plot_adj_difference_heatmap(
     adj_df,
     cmap='RdBu',
-    save_as=None,    # 新增：保存路径 + 格式，例如 'figure.svg'
+    save_as=None,    
     show=True
 )
 ```
