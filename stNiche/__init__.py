@@ -1,6 +1,6 @@
 # stniche/__init__.py
 
-from .stNiche import (
+from .stniche import (
     compute_groupwise_adjacency_matrix, #计算邻接spot的差异
     plot_adj_difference_heatmap, #绘制邻接spot的差异
     extract_and_group_3rd_structures_from_2nd_with_ratio, #从二级到三级结构

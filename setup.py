@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='stNiche',
+    name='stniche',
     version='0.1.0',
     packages=find_packages(),
     install_requires=[
@@ -16,5 +16,5 @@ setup(
     author_email='1308318910@qq.com',
     description='Spatial structure analysis toolkit for transcriptomics.',
     license='MIT',
-    url='https://github.com/yourusername/spatialstructures',
+    url='https://github.com/BioinAI/stniche',
 )
