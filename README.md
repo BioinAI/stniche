@@ -1,19 +1,19 @@
 
 # stNiche
 
-**stniche** is a Python toolkit for identifying and analyzing spatial niches in spatial transcriptomics data. It integrates spatial connectivity, geometric motif extraction, statistical significance, differential gene expression, pathway enrichment, and spatial communication visualization.
+**stNiche** is a Python toolkit for identifying and analyzing spatial niches in spatial transcriptomics data. It integrates niche detection, functional annotation, and spatial communication analysis.
 
 ---
 
 ## 🧬 Features
 
 - Compute neighborhood connectivity differences across groups
-- Identify enriched 2nd/3rd/4th-order spatial motifs
+- Identify enriched 3rd-order spatial motifs
 - Filter structures by statistical significance, fold change, and coverage
 - Iteratively expand niche structures to discover higher-order spatial architecture
 - Highlight niche points on Visium histology images
 - Perform differential expression and enrichment analysis of niche spots
-- Visualize niche communication using Sankey diagrams
+- Visualize niche communication 
 
 ---
 
