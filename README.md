@@ -1,5 +1,5 @@
 
-# stniche
+# stNiche
 
 **stniche** is a Python toolkit for identifying and analyzing spatial niches in spatial transcriptomics data. It integrates spatial connectivity, geometric motif extraction, statistical significance, differential gene expression, pathway enrichment, and spatial communication visualization.
 
@@ -20,7 +20,7 @@
 ## 📦 Installation
 
 ```bash
-pip install .
+pip install stniche
 ```
 
 ---
@@ -30,9 +30,9 @@ pip install .
 ### 1. Compute Adjacency Differences
 
 ```python
-from stniche import compute_groupwise_adjacency_matrix
+import stNiche
 
-adj_df, fdr_filtered_2nd = compute_groupwise_adjacency_matrix(
+adj_df, fdr_filtered_2nd = stNiche.compute_groupwise_adjacency_matrix(
     adata,
     row_key='array_row',
     col_key='array_col',
@@ -51,9 +51,7 @@ adj_df, fdr_filtered_2nd = compute_groupwise_adjacency_matrix(
 ### 2. Visualize Adjacency Difference Heatmap
 
 ```python
-from stniche import plot_adj_difference_heatmap
-
-plot_adj_difference_heatmap(
+stNiche.plot_adj_difference_heatmap(
     adj_df,
     cmap='RdBu',
     save_as=None,    
@@ -66,9 +64,7 @@ plot_adj_difference_heatmap(
 ### 3. Extract and Group 3rd-Order Structures
 
 ```python
-from stniche import extract_and_group_3rd_structures_from_2nd_with_ratio
-
-grouped_structures, sample_wise_structures, df_counts = extract_and_group_3rd_structures_from_2nd_with_ratio(
+grouped_structures, sample_wise_structures, df_counts = stNiche.extract_and_group_3rd_structures_from_2nd_with_ratio(
     adata,
     fdr_filtered_2nd,
     row_key='array_row',
@@ -88,9 +84,8 @@ grouped_structures, sample_wise_structures, df_counts = extract_and_group_3rd_st
 ### 4. Filter Unique Significant Structures
 
 ```python
-from stniche import filter_unique_significant_structures
 
-df_unique_filtered = filter_unique_significant_structures(
+df_unique_filtered = stNiche.filter_unique_significant_structures(
     df_counts,
     grouped_structures,
     sample_wise_structures,
@@ -103,9 +98,7 @@ df_unique_filtered = filter_unique_significant_structures(
 ### 5. Iteratively Expand and Analyze Structures
 
 ```python
-from stniche import run_iterative_analysis_over_df
-
-all_iterative_results = run_iterative_analysis_over_df(
+all_iterative_results = stNiche.run_iterative_analysis_over_df(
     df_unique_filtered,
     grouped_structures,
     sample_wise_structures,
@@ -127,9 +120,7 @@ all_iterative_results = run_iterative_analysis_over_df(
 ### 6. Plot Structure Geometry as Hex View
 
 ```python
-from stniche import plot_structure_hex
-
-plot_structure_hex(
+stNiche.plot_structure_hex(
     all_iterative_results,
     group = 0,
     title="Structure (Hex View)",
@@ -144,9 +135,7 @@ plot_structure_hex(
 ### 7. Highlight Niche on Visium Image
 
 ```python
-from stniche import highlight_niche_on_spatial
-
-highlight_niche_on_spatial(
+stNiche.highlight_niche_on_spatial(
     iter_result=all_iterative_results[3],
     sample_id='Sample123',
     sample_path='/path/to/visium/sample',
@@ -164,9 +153,7 @@ highlight_niche_on_spatial(
 ### 8. Run Niche Differential Expression + Enrichment
 
 ```python
-from stniche import run_niche_differential_and_enrichment
-
-run_niche_differential_and_enrichment(
+stNiche.run_niche_differential_and_enrichment(
     adata,
     all_iterative_results,
     group_index=0,
@@ -185,9 +172,7 @@ run_niche_differential_and_enrichment(
 ### 9. Visualize Spatial Communication (Sankey)
 
 ```python
-from stniche import plot_spatial_communication_sankey
-
-plot_spatial_communication_sankey(
+stNiche.plot_spatial_communication_sankey(
     adata,
     all_iterative_results,
     group_index=0,
