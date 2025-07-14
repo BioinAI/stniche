@@ -26,8 +26,8 @@ def compute_groupwise_adjacency_matrix(
     cluster_key='leiden_0.7',
     group_key='class',
     groups=('GroupA', 'GroupB'),
-    focus_group=None,  # 新增：指定关注的 group
-    enrichment_fold=4,   # 可选：fold change 倍数阈值
+    focus_group=None,  
+    enrichment_fold=4,  
     P_value = 0.05
 ):
     """
@@ -87,7 +87,6 @@ def compute_groupwise_adjacency_matrix(
     spot_data = adata.obs[[row_key, col_key, sample_key, cluster_key]].copy()
     sample_adj_counts = {}
 
-    # 每个样本构建邻接矩阵
     for sample in spot_data[sample_key].unique():
         sample_spots = spot_data[spot_data[sample_key] == sample]
         spot_dict = {
@@ -121,11 +120,11 @@ def compute_groupwise_adjacency_matrix(
 
         sample_adj_counts[sample] = adj_df
 
-    # 合并所有样本邻接矩阵
+
     all_samples_adj = pd.concat(sample_adj_counts, names=["library_id", "leiden"])
     all_leiden_classes = sorted(all_samples_adj.columns.union(all_samples_adj.index.levels[1]))
 
-    # 获取每组邻接矩阵（保留为 NumPy 用于统计分析）
+
     group_adj_matrices = {}
     for group in groups:
         samples = adata.obs[adata.obs[group_key] == group][sample_key].unique().tolist()
@@ -140,14 +139,13 @@ def compute_groupwise_adjacency_matrix(
         if group_matrices:
             group_adj_matrices[group] = np.array(group_matrices)
 
-    # 构建合并均值矩阵 DataFrame（用于展示）
+
     group_avg_flattened = {}
     for group in group_adj_matrices:
         mean_matrix = np.mean(group_adj_matrices[group], axis=0)
         group_avg_flattened[group] = pd.DataFrame(mean_matrix, index=all_leiden_classes, columns=all_leiden_classes)
     merged_df = pd.concat(group_avg_flattened, names=["Group_samll"])
 
-    # 仅支持两个组比较
     if len(groups) != 2:
         print("Only two groups comparison is supported for statistical testing.")
         return merged_df, None
@@ -185,7 +183,7 @@ def compute_groupwise_adjacency_matrix(
         "FDR_corrected": fdrs
     })
 
-    # 筛选显著差异且非对角（即不同类之间）
+
     fdr_filtered = fdr_results[
         (fdr_results["FDR_corrected"] < P_value) &
         (fdr_results["Leiden1"] != fdr_results["Leiden2"])
@@ -196,7 +194,6 @@ def compute_groupwise_adjacency_matrix(
     #(fdr_filtered[ f"{group1}_mean"] > fdr_filtered[ f"{group1}_mean"].mean())
     #]
 
-    # 若指定了 focus_group，则进一步筛选显著增强的邻接结构
     focus_filtered = None
     if focus_group in groups:
         other_group = [g for g in groups if g != focus_group][0]
@@ -213,7 +210,7 @@ def compute_groupwise_adjacency_matrix(
 def plot_adj_difference_heatmap(
     adj_df,
     cmap='RdBu',
-    save_as=None,    # 新增：保存路径 + 格式，例如 'figure.svg'
+    save_as=None,    
     show=True
 ):
     """
@@ -252,27 +249,27 @@ def plot_adj_difference_heatmap(
     - Diagonal entries (self-to-self cluster connections) are set to 0 for clarity.
     """
 
-    # 自动获取 group 名称
+
     first_group = adj_df.index.levels[0][0]
     second_group = adj_df.index.levels[0][1]
 
-    # 提取 group 的矩阵
+
     disease_mat = adj_df.loc[first_group]
     healthy_mat = adj_df.loc[second_group]
 
-    # 计算差值矩阵
+ 
     diff_mat = disease_mat - healthy_mat
 
-    # 排序 & 数值化
+
     diff_mat.columns = diff_mat.columns.astype(int)
     diff_mat = diff_mat.reindex(sorted(diff_mat.columns), axis=1)
     diff_mat.index = diff_mat.index.astype(int)
     diff_mat = diff_mat.sort_index(axis=0)
 
-    # 设置对角线为 0
+
     np.fill_diagonal(diff_mat.values, 0)
 
-    # 绘图
+
     plt.figure(figsize=(8, 7))
     sns.heatmap(
         diff_mat,
@@ -285,67 +282,67 @@ def plot_adj_difference_heatmap(
     plt.title('Immediate neighborhood')
     plt.tight_layout()
 
-    # 保存图像（如果指定了路径）
+
     if save_as:
         plt.savefig(save_as, format=save_as.split('.')[-1], dpi=300)
 
-    # 显示或关闭图像
+
     if show:
         plt.show()
     else:
         plt.close()
 
-# 计算结构的相对几何关系
+
 def geometric_signature(structure):
     coordinates = structure[['x', 'y']].values
     center = np.mean(coordinates, axis=0)
     vectors = coordinates - center
     distances = np.linalg.norm(vectors[:, np.newaxis, :] - vectors[np.newaxis, :, :], axis=-1)
 
-    # 创建距离矩阵
+
     distance_matrix = pd.DataFrame(distances, index=structure['name'], columns=structure['name'])
 
-    # 关键修正：使用 stack() 但先去掉索引名称，防止与列名冲突
+
     distance_matrix.index.name = None
     distance_matrix.columns.name = None
 
-    # 转换为 DataFrame
+ 
     distance_flat = distance_matrix.stack().reset_index()
 
-    # 确保列名正确
+  
     distance_flat.columns = ['From', 'To', 'Distance']
 
-    # 只保留 From < To，去掉自环(A-A, B-B) 以及重复项(A-B 和 B-A)
+
     distance_flat = distance_flat[distance_flat['From'] < distance_flat['To']]
 
-    # 按距离排序
+    
     sorted_distances = distance_flat.sort_values(by='Distance').reset_index(drop=True)
 
-    # 获取 label 组合
+   
     labels_dict = structure.set_index('name')['label'].to_dict()
     sorted_label_combinations = [(labels_dict[f], labels_dict[t]) for f, t in zip(sorted_distances['From'], sorted_distances['To'])]
 
     return sorted_distances, sorted_label_combinations
 
-# 比较签名（分组比较，组内排序后标签一致）
+
 def compare_structures(sig1, sig2, labels1, labels2, tolerance=1e-6):
 
 
-    # 提取距离列，转换为 NumPy 数组
+   
     distances1 = np.round(sig1['Distance'].to_numpy(), decimals=6)
     distances2 = np.round(sig2['Distance'].to_numpy(), decimals=6)
     
-    # 确保两个结构的距离数组长度相同
+    
     if len(distances1) != len(distances2):
         return False
 
-    # 归一化标签顺序：确保每个 (a, b) 组合都是 (min(a,b), max(a,b))
+
     normalized_labels1 = [tuple(sorted(label)) for label in labels1]
     normalized_labels2 = [tuple(sorted(label)) for label in labels2]
     #print(normalized_labels1)
     #print(normalized_labels2)        
     
-    # **按距离分组**
+
     from collections import defaultdict
     group1 = defaultdict(list)
     group2 = defaultdict(list)
@@ -358,18 +355,18 @@ def compare_structures(sig1, sig2, labels1, labels2, tolerance=1e-6):
    
     #print(group1)
     #print(group2)    
-    # **检查每个分组是否匹配**
-    for d in sorted(group1.keys()):  # 确保比较时按距离排序
+
+    for d in sorted(group1.keys()):  
         if d not in group2:
-            return False  # 有不同的距离，结构不匹配
+            return False  
         
-        # **排序后比较标签**
+
         if sorted(group1[d]) != sorted(group2[d]):
-            return False  # 组内标签不匹配
+            return False
 
     return True
 
-#从二级结构到三级结构
+
 def extract_and_group_3rd_structures_from_2nd_with_ratio(
     adata,
     fdr_filtered_2nd,
@@ -560,7 +557,6 @@ def extract_and_group_3rd_structures_from_2nd_with_ratio(
         "Group_ID", "Count_Sample", "Count_Mean", "Ratio_Mean", "Ratios"
     ])
     
-    # 添加 Count_Mean_Other、Fold_Change、Coverage、Significant
     df_counts["Count_Mean_Other"] = [
         np.mean([df_counts.loc[j, "Count_Mean"] for j in range(len(df_counts)) if j != i]) 
         if len(df_counts) > 1 else 1e-9
@@ -601,7 +597,7 @@ def extract_and_group_3rd_structures_from_2nd_with_ratio(
 
     return grouped_structures, sample_wise_structures, df_counts 
 
-#筛选显著的三级结构
+
 def filter_unique_significant_structures(
     df_counts,
     grouped_structures,
@@ -646,7 +642,6 @@ def filter_unique_significant_structures(
 
 
     def get_structure_label_signature(group_id):
-        """获取结构组中的 label signature（Counter，排序并转为 tuple 以便哈希）"""
         structures = grouped_structures.get(group_id, [])
         if not structures:
             return None
@@ -657,7 +652,7 @@ def filter_unique_significant_structures(
         labels = [label for _, label in structure]
         return tuple(sorted(Counter(labels).items()))
 
-    # 收集每个结构标签 signature 对应的最显著一行
+
     signature_to_best_idx = {}
 
     for idx, row in df_counts.iterrows():
@@ -671,33 +666,31 @@ def filter_unique_significant_structures(
         ):
             signature_to_best_idx[signature] = idx
 
-    # 获取唯一结构的索引列表
+
     unique_indices = list(signature_to_best_idx.values())
 
-    # 提取唯一显著结构组并过滤 Adjusted_P
+
     df_unique_filtered = df_counts.loc[unique_indices].copy()
     df_unique_filtered = df_unique_filtered.sort_values(by="Adjusted_P").reset_index(drop=True)
     df_unique_filtered = df_unique_filtered[df_unique_filtered["Adjusted_P"] <= adjusted_p_threshold]
 
     return df_unique_filtered
 
-#
-# **按标签集合进行初步分组**
+
 def group_by_label_sets(structures_dict):
     label_groups = defaultdict(list)
     
     for struct_name, nodes in structures_dict.items():
-        label_set = frozenset([node[1] for node in nodes])  # 只存标签集合
+        label_set = frozenset([node[1] for node in nodes])  
         label_groups[label_set].append(struct_name)
 
     return label_groups
 
-# **根据几何特征进行最终分组**
 def group_structures_by_geometry(structures_dict):
     structure_signatures = {}
     grouped_structures = {}
 
-    # **计算所有结构的几何签名**
+ 
     for structure_name, nodes in structures_dict.items():
         df = pd.DataFrame(nodes, columns=["(x, y)", "label"])
         df["name"] = df["(x, y)"]
@@ -705,16 +698,16 @@ def group_structures_by_geometry(structures_dict):
         df["y"] = df["(x, y)"].apply(lambda p: p[1])
         df.drop(columns=["(x, y)"], inplace=True)
 
-        # **计算几何签名**
+ 
         signature, labels = geometric_signature(df)
 
-        # **存储签名**
+      
         structure_signatures[structure_name] = (signature, labels)
 
-    # **先按标签集合进行初步分组**
+
     label_based_groups = group_by_label_sets(structures_dict)
 
-    # **在同一标签组内进行详细几何比较**
+
     for label_set, structure_names in label_based_groups.items():
         for struct_name in structure_names:
             sig, labels = structure_signatures[struct_name]
@@ -726,13 +719,13 @@ def group_structures_by_geometry(structures_dict):
 
                 if compare_structures(sig, ref_sig, labels, ref_labels):
                     matched_group = group_key
-                    break  # 找到匹配的组就停止
+                    break  
 
-            # **如果匹配到已有分组，就加入该分组**
+
             if matched_group is not None:
                 grouped_structures[matched_group].append(struct_name)
             else:
-                # **如果没有匹配的，就创建新分组**
+      
                 new_group_key = len(grouped_structures)
                 grouped_structures[new_group_key] = [struct_name]
 
@@ -740,18 +733,28 @@ def group_structures_by_geometry(structures_dict):
 
 def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_group = None, sample_key=None, fc_threshold=None, p_threshold=None, coverage_threshold=None):
     """
-    计算结构组间的差异（不区分 Healthy/Disease），使用每组与其它组进行比较。
+    Compute differential analysis between structural groups (ignoring Healthy/Disease labels), 
+    by comparing each group against all others.
 
-    参数：
-    - grouped_structures: dict，键为 group_id，值为 (sample, structure_id) 对
-    - adata: AnnData 对象
-    - sample_key: str，用于标识样本的列名（默认为 'library_id'）
-    - fc_threshold: float，fold change 阈值
-    - p_threshold: float，p 值显著性阈值
-    - coverage_threshold: float，结构覆盖的样本比例阈值
+    Parameters:
+    - grouped_structures: dict  
+        Dictionary where keys are group IDs and values are (sample, structure_id) pairs.
+    - adata: AnnData  
+        Annotated data matrix (e.g., single-cell or spatial data).
+    - sample_key: str  
+        Column name used to identify samples (default: 'library_id').
+    - fc_threshold: float  
+        Fold change threshold for differential detection.
+    - p_threshold: float  
+        Significance threshold for p-values.
+    - coverage_threshold: float  
+        Minimum proportion of samples that must contain a structure for it to be considered.
 
-    返回：
-    - df_counts: DataFrame，结构组统计结果
+    Returns:
+    - df_counts: DataFrame  
+        A summary table of statistical results per structural group.
+    """
+
     """
     focus_sample_ids = adata.obs[adata.obs[group_key] == focus_group][sample_key].unique()
     #sample_wise_structures = {}
@@ -764,7 +767,7 @@ def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_g
     #sample_total_spots = {s: np.sum(adata.obs[sample_key] == s) for s in all_samples}
     sample_index = {s: i for i, s in enumerate(all_samples)}
 
-    # 初始化每组结构的每个样本中出现次数
+
     group_counts = defaultdict(lambda: np.zeros(total_samples))
 
     for gid, items in grouped_structures.items():
@@ -772,7 +775,7 @@ def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_g
             idx = sample_index[sample]
             group_counts[gid][idx] += 1
 
-    # 计算每组在每个样本中的比例
+
     sample_structure_data = []
     for gid, counts in group_counts.items():
         ratios = []
@@ -800,7 +803,7 @@ def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_g
     df_counts["Fold_Change"] = df_counts["Count_Mean"] / df_counts["Count_Mean_Other"].replace(0, np.nan).fillna(1e-9)
     df_counts["Coverage"] = df_counts["Count_Sample"] / total_samples
 
-    # 结构组 vs 其它组的 Mann-Whitney U 检验
+  
     p_values = []
     for i, row in df_counts.iterrows():
         current_ratios = row["Ratios"]
@@ -816,7 +819,7 @@ def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_g
     df_counts["P_Value"] = p_values
     df_counts["Adjusted_P"] = multipletests(p_values, method="fdr_bh")[1]
 
-    # 筛选显著结构
+
     df_counts["Significant"] = (
         (df_counts["Adjusted_P"] < p_threshold) &
         (df_counts["Fold_Change"] > fc_threshold) &
@@ -828,25 +831,31 @@ def analyze_structure_groups(grouped_structures, adata, group_key= None, focus_g
 def expand_structure(structure_dict, adata, sample_key=None, row_key=None,
                      col_key=None, leiden_key =None):
     """
-    扩展给定的结构到更高一级（在当前结构的基础上增加一个新节点）。
-    
-    参数：
-    - structure_dict: dict，存储当前级别结构的字典，键为 (sample, structure_name)，值为节点列表
-    - adata: AnnData 对象，包含样本的空间坐标和类别信息
+    Expand the given structures to a higher level by adding one new node 
+    on top of the current structure.
 
-    返回：
-    - expanded_structures: dict，扩展后的结构
+    Parameters:
+    - structure_dict: dict  
+        Dictionary of current-level structures, where keys are (sample, structure_name) 
+        and values are lists of nodes.
+    - adata: AnnData  
+        Annotated data object containing spatial coordinates and category information for each sample.
+
+    Returns:
+    - expanded_structures: dict  
+        Dictionary of the expanded structures.
     """
+
     if not structure_dict:
         print("❌ 结构字典为空，无法扩展！")
         return {}
-        # **定义邻接关系（六边形网格）**
+
         
     neighbors_offset = [
-        (-1, 0), (1, 0),  # 上下
-        (0, -2), (0, 2),  # 左右
-        (-1, -1), (1, -1),  # 斜向
-        (-1, 1), (1, 1)    # 斜向
+        (-1, 0), (1, 0),  
+        (0, -2), (0, 2),  
+        (-1, -1), (1, -1),  
+        (-1, 1), (1, 1)  
     ]
     
     expanded_structures = {}
@@ -854,12 +863,12 @@ def expand_structure(structure_dict, adata, sample_key=None, row_key=None,
     structure_id = 0
 
     for (sample, structure), points in structure_dict.items():
-        # **获取当前结构的所有点**
-        existing_points = {p[0] for p in points}  # 提取 (row, col)
-        existing_leidens = {p[1] for p in points}  # 提取 leiden 类型
-        current_size = len(points)  # 当前结构的大小
 
-        # **获取该样本的 spot 数据**
+        existing_points = {p[0] for p in points} 
+        existing_leidens = {p[1] for p in points}  
+        current_size = len(points) 
+
+
         spot_dict = {  # 该样本的 (row, col) -> leiden 映射
             (row, col): str(leiden)
             for row, col, leiden in zip(
@@ -869,29 +878,29 @@ def expand_structure(structure_dict, adata, sample_key=None, row_key=None,
             )
         }
 
-        # **查找邻居点**
+
         potential_new_nodes = set()
         for pr, pc in existing_points:
             for dr, dc in neighbors_offset:
                 nr, nc = pr + dr, pc + dc
 
-                # **确保新点属于同一 sample，不在已有结构中**
+
                 if (nr, nc) in spot_dict and (nr, nc) not in existing_points:
                     leiden_new = spot_dict[(nr, nc)]
                     potential_new_nodes.add(((nr, nc), leiden_new))
 
-        # **确保至少有一个新点来扩展**
-        if not potential_new_nodes:
-            continue  # 跳过无法扩展的结构
 
-        # **生成所有可能的新结构**
+        if not potential_new_nodes:
+            continue  
+
+
         for new_node in potential_new_nodes:
             new_structure_key = (sample, f"structure_{structure_id}")
 
-            # **存储扩展后的结构**
+
             expanded_structures[new_structure_key] = points + [new_node]
 
-            # **防止重复存储**
+
             visited_expanded.add((sample, tuple(sorted(existing_points | {new_node[0]}))))
             structure_id += 1
 
@@ -901,19 +910,16 @@ def iterative_structure_analysis(initial_structures, adata, reference_row, cover
                                  sample_key=None, row_key=None, col_key=None, 
                                  leiden_key=None,focus_group= None, group_key= None,
                                  fc_threshold= None,p_threshold= None):
-    """
-    迭代扩展结构，每轮挑出最显著、满足覆盖率的结构，并记录“上一次有效结果”；
-    如果下一轮覆盖率不足，则回退到上一次有效结果并结束。
-    """
+
     extracted_structures = initial_structures
-    last_valid_structures = initial_structures  # ← 记录上一次通过阈值的结构
+    last_valid_structures = initial_structures  
     iteration = 0
 
     while True:
         iteration += 1
         print(f"开始第 {iteration} 轮结构扩展...")
 
-        # 1. 扩展结构
+      
         new_structures = expand_structure(
             extracted_structures, adata, 
             sample_key=sample_key, row_key=row_key,
@@ -923,7 +929,7 @@ def iterative_structure_analysis(initial_structures, adata, reference_row, cover
             print("❌ 无法扩展更多结构。终止迭代。")
             break
 
-        # 2. 分组 & 3. 差异分析
+
         grouped = group_structures_by_geometry(new_structures)
         df_results = analyze_structure_groups(
             grouped, adata,
@@ -933,28 +939,25 @@ def iterative_structure_analysis(initial_structures, adata, reference_row, cover
             coverage_threshold=coverage_threshold
         )
 
-        # 4. 取出 fold_change >4 的结果
+
         df_filtered = df_results.query(f"Fold_Change > {fc_threshold}").copy()
         if df_filtered.empty:
             print("没有满足显著性的结构组，终止迭代。")
             break
 
-        # 5. 检查覆盖率
+
         max_cov = df_filtered["Coverage"].max()
         print(f"本轮最大覆盖率：{max_cov:.3f}")
         if max_cov < coverage_threshold:
             print("覆盖率不足，回退到上一次有效结构，终止迭代。")
             break
 
-        # —— 到这里说明本轮通过了覆盖率阈值 —— 
-        # 6. 挑出最优组，并更新 last_valid_structures 和 extracted_structures
-        #    （只有在本轮有效时才更新这两个变量）
-        # 找到最小 P-value 的候选组
+
         best_idx = df_filtered["P_Value"].idxmin()
         best_group_id = int(df_filtered.loc[best_idx, "Group_ID"])
         members = grouped[best_group_id]
 
-        # 构建下一轮要扩展的结构集
+
         next_structures = {
             (sample, struct): new_structures[(sample, struct)]
             for sample, struct in members
@@ -1144,7 +1147,7 @@ def plot_structure_hex(
     first_structure_key = list(all_iterative_results[first_group_key].keys())[0]
     structure = all_iterative_results[first_group_key][first_structure_key]
     
-    # 六边形的宽和高
+
     width = np.sqrt(3) * hex_size
     height = 2 * hex_size
     vert_dist = 3/4 * height
@@ -1153,27 +1156,26 @@ def plot_structure_hex(
     coords = [pt[0] for pt in structure]
     labels = [int(pt[1]) for pt in structure]
 
-    # 转换轴向坐标为像素坐标
     new_coords = []
     for q, r in coords:
         x = q * horiz_dist
         y = r * vert_dist
         new_coords.append((x, y))
 
-    # 设置图形
+
     fig, ax = plt.subplots(figsize=(6, 6))
 
-    # 画边（邻接线）
+
     for i, (x1, y1) in enumerate(new_coords):
         for j, (x2, y2) in enumerate(new_coords):
             if i < j:
-                # 邻接判断：六边形邻居有6种位移方向
+
                 dq = abs(coords[i][0] - coords[j][0])
                 dr = abs(coords[i][1] - coords[j][1])
                 if (dq, dr) in [(1, 0), (0, 2), (1, 1)]:
                     ax.plot([x1, x2], [y1, y2], color='gray', linewidth=1.2, zorder=1)
 
-    # 画六边形节点
+
     for (x, y), label in zip(new_coords, labels):
         hexagon = RegularPolygon(
             (x, y), numVertices=6, radius=hex_size,
@@ -1183,7 +1185,7 @@ def plot_structure_hex(
         ax.add_patch(hexagon)
         ax.text(x, y, str(label), ha='center', va='center', color='white', fontsize=12, weight='bold', zorder=3)
 
-    # 设置边界
+
     xs, ys = zip(*new_coords)
     padding = 2 * hex_size
     ax.set_xlim(min(xs) - padding, max(xs) + padding)
@@ -1194,11 +1196,11 @@ def plot_structure_hex(
     ax.set_title(title, fontsize=14)
     plt.tight_layout()
     
-    # 保存图像（如果指定了路径）
+
     if save_as:
         plt.savefig(save_as, format=save_as.split('.')[-1], dpi=300)
 
-    # 显示或关闭图像
+
     if show:
         plt.show()
     else:
@@ -1264,22 +1266,22 @@ def highlight_niche_on_spatial(
     - Matplotlib is used for rendering and image export.
     """
 
-    # 提取当前样本的结构信息
+
     sample_structures = {
         structure: coords_labels
         for (sid, structure), coords_labels in iter_result.items()
         if sid == sample_id
     }
 
-    # 读取样本
+
     adata_sample = sc.read_visium(sample_path)
 
-    # 构建坐标集合
+  
     niche_all_coords = set()
     for structure, coord_list in sample_structures.items():
         niche_all_coords.update((int(x), int(y)) for (x, y), _ in coord_list)
 
-    # 添加 niche/background 信息
+  
     adata_sample.obs['niche_status'] = adata_sample.obs.apply(
         lambda row: 'niche' if (row['array_row'], row['array_col']) in niche_all_coords else 'background',
         axis=1
@@ -1288,17 +1290,16 @@ def highlight_niche_on_spatial(
     
     adata_sample.obs['niche_status'] = adata_sample.obs['niche_status'].cat.set_categories(['background', 'niche'])
 
-    # 设置颜色
+
     color_palette = [background_color, niche_color]
 
-    # 如果保存路径提供，就设置 figdir 并提取文件名
     save_arg = None
     if save_path:
         figdir, filename = os.path.split(save_path)
         sc.settings.figdir = figdir
-        save_arg = filename  # scanpy 会自动拼接 figdir + filename
+        save_arg = filename  
 
-    # 画图
+
     sc.pl.spatial(
         adata_sample,
         color='niche_status',
@@ -1375,7 +1376,7 @@ def run_niche_differential_and_enrichment(
     - Designed to help interpret spatial niche structures biologically.
     """
 
-    # 1. 收集 niche spots
+
     nich_index = set()
     selected_result = all_iterative_results[group_index]
     
@@ -1386,10 +1387,10 @@ def run_niche_differential_and_enrichment(
             )['index'].tolist()
             nich_index.update(hits)
 
-    # 2. 找出涉及的所有样本
+
     samples = {sample for sample, _ in selected_result.keys()}
 
-    # 3. 建立标签
+
     obs = adata.obs.copy()
     obs['in_nich'] = False
     obs.loc[list(nich_index), 'in_nich'] = True
@@ -1397,7 +1398,7 @@ def run_niche_differential_and_enrichment(
     adata_subset = adata[mask].copy()
     adata_subset.obs['in_nich'] = obs.loc[mask, 'in_nich']
 
-    # 4. 生成标签列
+
     adata_subset.obs['niche_label'] = adata_subset.obs['in_nich'].map({
         True: 'niche', False: 'background'
     }).astype('category')
@@ -1405,7 +1406,7 @@ def run_niche_differential_and_enrichment(
         ['niche', 'background']
     )
 
-    # 5. 差异分析
+
     sc.tl.rank_genes_groups(
         adata_subset,
         groupby='niche_label',
@@ -1417,13 +1418,13 @@ def run_niche_differential_and_enrichment(
     df_de = sc.get.rank_genes_groups_df(adata_subset, group='niche')
 
     
-    # 6. 基因筛选
+ 
     sig_genes = df_de[
         (df_de['pvals_adj'] < padj_thr) &
         (df_de['logfoldchanges'] > lfc_thr)
     ].copy().sort_values('logfoldchanges', ascending=False)
 
-    # 7. 富集分析
+
     gene_list = sig_genes['names'].tolist()
     enr = gp.enrichr(
         gene_list=gene_list,
@@ -1439,7 +1440,7 @@ def run_niche_differential_and_enrichment(
         print("❗ 没有富集通路结果，请检查输入参数或基因集是否合理。")
         return sig_genes, None
 
-    # 8. 保存 CSV（如指定了前缀）
+
     if output_prefix:
         os.makedirs(os.path.dirname(output_prefix), exist_ok=True)
         df_de.to_csv(f"{output_prefix}/de_results.csv", index=False)
@@ -1448,7 +1449,7 @@ def run_niche_differential_and_enrichment(
             enrichment_df.to_csv(f"{output_prefix}/enrichment.csv", index=False)
     
     
-    # 9. 可视化
+
     kegg_res = enr.results.sort_values('Adjusted P-value').head(top_n).copy()
     kegg_res['Shortened Term'] = kegg_res['Term'].apply(lambda x: re.sub(r"\s*\(.*?\)", "", x))
     kegg_res['-log10(Adjusted P-value)'] = -np.log10(kegg_res['Adjusted P-value'])
@@ -1526,7 +1527,7 @@ def plot_spatial_communication_sankey(
     - Useful for visualizing key ligand-receptor interactions within spatially defined niches.
     """
 
-    # Step 1: 收集所有 niche spot 索引
+
     selected_result = all_iterative_results[group_index]
     nich_index = set()
     for (sample, _), nodes in selected_result.items():
@@ -1536,7 +1537,7 @@ def plot_spatial_communication_sankey(
             )['index'].tolist()
             nich_index.update(hits)
 
-    # Step 2: 构建 adata_combined_all，仅包含相关样本
+
     samples = {sample for sample, _ in selected_result.keys()}
     obs = adata.obs.copy()
     obs['in_nich'] = False
@@ -1547,10 +1548,10 @@ def plot_spatial_communication_sankey(
     adata_combined_all.obsm['spatial'] = adata_combined_all.obs[['array_row', 'array_col']].to_numpy(dtype=float)
     adata_combined_all.obs['niche_group'] = adata_combined_all.obs['in_nich'].map(lambda x: 'niche' if x else 'non_niche').astype('category')
 
-    # Step 3: 建立空间邻接图
+
     sq.gr.spatial_neighbors(adata_combined_all, coord_type="grid")
 
-    # Step 4: 空间通讯计算
+
     niche_result = sq.gr.ligrec(
         adata_combined_all,
         cluster_key='niche_group',
@@ -1558,7 +1559,7 @@ def plot_spatial_communication_sankey(
         copy=True
     )
 
-    # Step 5: 提取 means
+
     means = niche_result['means']
     if direction == 'niche':
         comm_scores = means[('niche', 'non_niche')]
@@ -1567,12 +1568,12 @@ def plot_spatial_communication_sankey(
     else:
         raise ValueError("❌ direction 参数必须是 'niche' 或 'non_niche'")
 
-    # Step 6: 排序并取前 N
+
     top_pairs = comm_scores.sort_values(ascending=False).head(top_n)
     top_df = top_pairs.reset_index()
     top_df.columns = ['Ligand', 'Receptor', 'Score']
 
-    # Step 7: 构造 Sankey 图
+
     ligands = top_df['Ligand'].tolist()
     receptors = top_df['Receptor'].tolist()
     scores = top_df['Score'].tolist()
@@ -1585,7 +1586,7 @@ def plot_spatial_communication_sankey(
         "value": round(score, 4)
     } for lig, rec, score in zip(ligands, receptors, scores)]
 
-    # 颜色渐变（可选）
+
     colorscale = pc.sample_colorscale('Reds', [i/len(scores) for i in range(len(scores))])
 
     fig = go.Figure(data=[go.Sankey(
@@ -1609,7 +1610,7 @@ def plot_spatial_communication_sankey(
         font_size=12
     )
 
-    # Step 8: 保存 PDF 和 CSV
+
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         pdf_path = os.path.join(output_dir, "sankey.pdf")
